@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    padding: 20px;
+    text-align: center;
+    background: #f7f7f7;
+  }
+
+  h3 {
+    font-size: 1.4rem;
+    margin-bottom: 20px;
+  }
+
+  #cameraLabel {
+    display: inline-block;
+    padding: 16px 28px;
+    background-color: #4CAF50;
+    color: white;
+    border-radius: 10px;
+    font-size: 1.2rem;
+    cursor: pointer;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  }
+
+  /* Hide the file input */
+  #cameraInput {
+    display: none;
+  }
+
+  img {
+    margin-top: 20px;
+    max-width: 100%;
+    height: auto;
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  }
+</style>
+
+</head>
+<body>
+
+<h3>Take a Photo</h3>
+
+<!-- Big button users can tap -->
+<label id="cameraLabel" for="cameraInput">📸 Open Camera</label>
+
+<!-- Smartphone camera input -->
+<input type="file" id="cameraInput" accept="image/*" capture="environment">
+
+<!-- Display image -->
+<div id="preview"></div>
+
+<script>
+document.getElementById("cameraInput").addEventListener("change", function(e) {
+    const file = e.target.files[0];
+    if (file) {
+        const imgURL = URL.createObjectURL(file);
+        const img = new Image();
+        img.src = imgURL;
+        document.getElementById("preview").innerHTML = "";
+        document.getElementById("preview").appendChild(img);
+    }
+});
+</script>
+
+</body>
+</html>
