@@ -10,79 +10,100 @@
     text-align: center;
     background: #f7f7f7;
   }
-
-  h3 {
-    font-size: 1.4rem;
-    margin-bottom: 20px;
-  }
-
-  #cameraLabel {
-    display: inline-block;
-    padding: 16px 28px;
-    background-color: #4CAF50;
-    color: white;
-    border-radius: 10px;
-    font-size: 1.2rem;
-    cursor: pointer;
-    margin-bottom: 20px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-  }
-
-  /* Hide the file input */
-  #cameraInput {
-    display: none;
-  }
-
-  img {
+  #cameraInput { display:none; }
+  img { max-width: 100%; border-radius: 12px; margin-top: 16px; }
+  #analysis {
+    background: white;
     margin-top: 20px;
-    max-width: 100%;
-    height: auto;
-    border-radius: 12px;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    padding: 14px;
+    border-radius: 10px;
+    text-align: left;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
   }
 </style>
+
+<!-- TensorFlow Object Detection -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+
+<!-- GPT-style reasoning (Transformers.js + Qwen) -->
+<script src="https://cdn.jsdelivr.net/npm/@xenova/transformers"></script>
 
 </head>
 <body>
 
-<h3>Take a Photo</h3>
+<h2>📸 AI Scene Understanding Prototype</h2>
 
-<!-- Big button users can tap -->
-<label id="cameraLabel" for="cameraInput">📸 Open Camera</label>
+<label style="padding:14px 20px;background:#4CAF50;color:#fff;border-radius:8px;cursor:pointer;" for="cameraInput">
+  Open Camera
+</label>
 
-<!-- Smartphone camera input -->
 <input type="file" id="cameraInput" accept="image/*" capture="environment">
 
-<!-- Display image -->
 <div id="preview"></div>
-
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+<div id="analysis"></div>
 
 <script>
-let model;
-cocoSsd.load().then(m => model = m);
+let detectModel = null;
+let vlm = null;
 
+// Load object detection model
+cocoSsd.load().then(m => detectModel = m);
+
+// Load GPT-style image reasoning model
+(async () => {
+  vlm = await pipeline(
+    "image-to-text",
+    "Xenova/qwen-vl-chat",   // small open-source VLM
+    { device: "webgpu" }
+  );
+})();
+
+// When image taken
 document.getElementById("cameraInput").addEventListener("change", async function(e) {
-    const file = e.target.files[0];
-    if (!file) return;
+  const file = e.target.files[0];
+  if (!file) return;
 
-    const imgURL = URL.createObjectURL(file);
-    const img = new Image();
-    img.src = imgURL;
+  const imgURL = URL.createObjectURL(file);
+  const img = new Image();
+  img.src = imgURL;
 
-    img.onload = async () => {
-        document.getElementById("preview").innerHTML = "";
-        document.getElementById("preview").appendChild(img);
+  img.onload = async () => {
+    document.getElementById("preview").innerHTML = "";
+    document.getElementById("preview").appendChild(img);
 
-        const results = await model.detect(img);
-        console.log(results);
+    // Wait until models load
+    if (!detectModel) {
+      document.getElementById("analysis").textContent =
+        "Loading object detection model…";
+      return;
+    }
+    if (!vlm) {
+      document.getElementById("analysis").textContent =
+        "Loading GPT reasoning model…";
+      return;
+    }
 
-        let summary = results.map(r => r.class).join(", ");
-        alert("AI detected: " + summary);
-    };
+    // 1️⃣ Object Detection (TF.js)
+    const preds = await detectModel.detect(img);
+    const things = preds.map(p => p.class).join(", ");
+
+    // 2️⃣ GPT-style reasoning (Transformers.js)
+    const explanation = await vlm(img, {
+      prompt: "Explain what you see in this photo in simple terms:"
+    });
+
+    const text = explanation[0].generated_text;
+
+    // Show reasoning
+    document.getElementById("analysis").innerHTML = `
+      <b>Detected Objects:</b><br>${things || "None"}<br><br>
+      <b>GPT-Style Explanation:</b><br>${text}
+    `;
+  };
 });
 </script>
 
 </body>
 </html>
+
