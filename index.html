@@ -56,16 +56,31 @@
 <!-- Display image -->
 <div id="preview"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+
 <script>
-document.getElementById("cameraInput").addEventListener("change", function(e) {
+let model;
+cocoSsd.load().then(m => model = m);
+
+document.getElementById("cameraInput").addEventListener("change", async function(e) {
     const file = e.target.files[0];
-    if (file) {
-        const imgURL = URL.createObjectURL(file);
-        const img = new Image();
-        img.src = imgURL;
+    if (!file) return;
+
+    const imgURL = URL.createObjectURL(file);
+    const img = new Image();
+    img.src = imgURL;
+
+    img.onload = async () => {
         document.getElementById("preview").innerHTML = "";
         document.getElementById("preview").appendChild(img);
-    }
+
+        const results = await model.detect(img);
+        console.log(results);
+
+        let summary = results.map(r => r.class).join(", ");
+        alert("AI detected: " + summary);
+    };
 });
 </script>
 
