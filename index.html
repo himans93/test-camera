@@ -11,7 +11,13 @@
     background: #f7f7f7;
   }
   #cameraInput { display:none; }
-  img { max-width: 100%; border-radius: 12px; margin-top: 16px; }
+  img {
+    max-width: 100%;
+    border-radius: 12px;
+    margin-top: 16px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  }
+
   #analysis {
     background: white;
     margin-top: 20px;
@@ -26,13 +32,13 @@
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
 
-<!-- GPT-style reasoning (Transformers.js + Qwen) -->
+<!-- GPT-style reasoning (Transformers.js) -->
 <script src="https://cdn.jsdelivr.net/npm/@xenova/transformers"></script>
 
 </head>
 <body>
 
-<h2>📸 AI Scene Understanding Prototype</h2>
+<h2>📸 AI Camera + Reasoning</h2>
 
 <label style="padding:14px 20px;background:#4CAF50;color:#fff;border-radius:8px;cursor:pointer;" for="cameraInput">
   Open Camera
@@ -47,19 +53,20 @@
 let detectModel = null;
 let vlm = null;
 
-// Load object detection model
-cocoSsd.load().then(m => detectModel = m);
+// Load object detection
+cocoSsd.load().then(m => {
+  detectModel = m;
+});
 
-// Load GPT-style image reasoning model
+// Load GPT-style vision-language model
 (async () => {
   vlm = await pipeline(
     "image-to-text",
-    "Xenova/qwen-vl-chat",   // small open-source VLM
+    "Xenova/qwen-vl-chat",   // lightweight browser AI
     { device: "webgpu" }
   );
 })();
 
-// When image taken
 document.getElementById("cameraInput").addEventListener("change", async function(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -68,37 +75,42 @@ document.getElementById("cameraInput").addEventListener("change", async function
   const img = new Image();
   img.src = imgURL;
 
+  // ALWAYS show image first
   img.onload = async () => {
     document.getElementById("preview").innerHTML = "";
     document.getElementById("preview").appendChild(img);
 
-    // Wait until models load
-    if (!detectModel) {
-      document.getElementById("analysis").textContent =
-        "Loading object detection model…";
-      return;
-    }
-    if (!vlm) {
-      document.getElementById("analysis").textContent =
-        "Loading GPT reasoning model…";
+    document.getElementById("analysis").innerHTML =
+      "<b>Analyzing image...</b><br>Please wait.";
+
+    // Wait for models
+    if (!detectModel || !vlm) {
+      document.getElementById("analysis").innerHTML =
+        "Models are still loading… Please try again in a few seconds.";
       return;
     }
 
-    // 1️⃣ Object Detection (TF.js)
+    // -----------------------
+    // 1️⃣ Object Detection
+    // -----------------------
     const preds = await detectModel.detect(img);
-    const things = preds.map(p => p.class).join(", ");
+    const objects = preds.map(p => p.class).join(", ") || "No objects detected";
 
-    // 2️⃣ GPT-style reasoning (Transformers.js)
-    const explanation = await vlm(img, {
-      prompt: "Explain what you see in this photo in simple terms:"
+    // -----------------------
+    // 2️⃣ GPT-style reasoning
+    // -----------------------
+    const reasoning = await vlm(img, {
+      prompt: "Describe this scene and explain what it might be."
     });
 
-    const text = explanation[0].generated_text;
+    const text = reasoning[0].generated_text;
 
-    // Show reasoning
+    // -----------------------
+    // 3️⃣ Show results
+    // -----------------------
     document.getElementById("analysis").innerHTML = `
-      <b>Detected Objects:</b><br>${things || "None"}<br><br>
-      <b>GPT-Style Explanation:</b><br>${text}
+      <b>Detected objects:</b><br>${objects}<br><br>
+      <b>AI Reasoning:</b><br>${text}
     `;
   };
 });
@@ -106,4 +118,3 @@ document.getElementById("cameraInput").addEventListener("change", async function
 
 </body>
 </html>
-
